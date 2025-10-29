@@ -195,87 +195,39 @@ local ImmortalGroupbox = Tab:CreateGroupbox({
 	Column = 2,
 }, "ImmortalGB")
 
---------------------------------------------------
---// IMMORTALITY TOGGLE (Auto Reapply)
---------------------------------------------------
-
-local mt = getrawmetatable(game)
-setreadonly(mt, false)
-local old = mt.__namecall
-local hookEnabled = false
-local immortalityEnabled = false
-
--- Function to apply immortality
-local function applyImmortality()
-	local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-	local Event = workspace.game.WorkspaceStuff.SetInvincibilityScript:FindFirstChild("SetInvincibility")
-
-	if Event then
-		Event:FireServer(Character, "Add")
-	end
-end
-
--- Function to remove immortality
-local function removeImmortality()
-	local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-	local Event = workspace.game.WorkspaceStuff.SetInvincibilityScript:FindFirstChild("SetInvincibility")
-
-	if Event then
-		Event:FireServer(Character, "Remove")
-	end
-end
-
--- Hook __namecall to block all future FireServer calls for the event
-local function enableHook(Event)
-	if hookEnabled then return end
-	mt.__namecall = function(self, ...)
-		local method = getnamecallmethod()
-		if method == "FireServer" and typeof(self) == "Instance" then
-			if self == Event then
-				return -- block all future calls to this event
-			end
-		end
-		return old(self, ...)
-	end
-	hookEnabled = true
-end
-
--- Restore metatable behavior
-local function disableHook()
-	if hookEnabled then
-		mt.__namecall = old
-		hookEnabled = false
-	end
-end
-
-ImmortalGroupbox:CreateToggle({
+local Button = ImmortalGroupbox:CreateButton({
 	Name = "Immortality",
-	Tooltip = "Makes your character permanently invincible and re-applies after respawn.",
-	Icon = NebulaIcons:GetIcon("shield", "Lucide"),
-	Style = 2,
-	CurrentValue = false,
-	Callback = function(Value)
+	Icon = NebulaIcons:GetIcon("shield", "Material"),
+	Callback = function()
+		local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 		local Event = workspace.game.WorkspaceStuff.SetInvincibilityScript:FindFirstChild("SetInvincibility")
 
-		if Value then
-			immortalityEnabled = true
-			applyImmortality()
-			enableHook(Event)
+		if Event then
+			-- Fire Add once
+			Event:FireServer(Character, "Add")
+
+			-- Hook __namecall to block any future Remove calls
+			local mt = getrawmetatable(game)
+			setreadonly(mt, false)
+			local old = mt.__namecall
+
+			mt.__namecall = function(self, ...)
+				local method = getnamecallmethod()
+				if method == "FireServer" and typeof(self) == "Instance" then
+					if self == Event then
+						return -- block all future calls to this event
+					end
+				end
+				return old(self, ...)
+			end
+
+			-- Optional: Notify
+			print("Immortality applied! All future Remove calls blocked.")
 		else
-			immortalityEnabled = false
-			disableHook()
-			removeImmortality()
+			warn("SetInvincibility event not found!")
 		end
 	end,
-}, "ImmortalToggle")
-
--- Auto reapply immortality on respawn
-localPlayer.CharacterAdded:Connect(function()
-	if immortalityEnabled then
-		task.wait(1)
-		applyImmortality()
-	end
-end)
+}, "ImmortalButton")
 
 --------------------------------------------------
 --// NO JUMP COOLDOWN SECTION
