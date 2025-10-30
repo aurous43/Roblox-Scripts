@@ -195,37 +195,57 @@ local ImmortalGroupbox = Tab:CreateGroupbox({
 	Column = 2,
 }, "ImmortalGB")
 
+--------------------------------------------------
+--// IMMORTALITY BUTTON (Blocks game, allows executor)
+--------------------------------------------------
+
+local immortalityEnabled = false
+local EventRef = nil
+local oldNamecall = nil
+local allowedThisTick = false
+
 local Button = ImmortalGroupbox:CreateButton({
 	Name = "Immortality",
 	Icon = NebulaIcons:GetIcon("shield", "Material"),
 	Callback = function()
 		local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 		local Event = workspace.game.WorkspaceStuff.SetInvincibilityScript:FindFirstChild("SetInvincibility")
+		if not Event then
+			warn("SetInvincibility event not found!")
+			return
+		end
+		EventRef = Event
 
-		if Event then
-			-- Fire Add once
-			Event:FireServer(Character, "Add")
-
-			-- Hook __namecall to block any future Remove calls
+		-- 🟩 First-time setup: hook the remote
+		if not oldNamecall then
 			local mt = getrawmetatable(game)
 			setreadonly(mt, false)
-			local old = mt.__namecall
+			oldNamecall = mt.__namecall
 
 			mt.__namecall = function(self, ...)
 				local method = getnamecallmethod()
-				if method == "FireServer" and typeof(self) == "Instance" then
-					if self == Event then
-						return -- block all future calls to this event
-					end
+				local args = {...}
+
+				if self == EventRef and method == "FireServer" and not allowedThisTick then
+					-- block all game attempts to FireServer (Add/Remove)
+					return
 				end
-				return old(self, ...)
+
+				return oldNamecall(self, ...)
 			end
 
-			-- Optional: Notify
-			print("Immortality applied! All future Remove calls blocked.")
-		else
-			warn("SetInvincibility event not found!")
+			setreadonly(mt, true)
 		end
+
+		-- 🟢 Allow this tick for executor-fired call
+		allowedThisTick = true
+		Event:FireServer(Character, "Add")
+		task.delay(0.1, function()
+			allowedThisTick = false
+		end)
+
+		immortalityEnabled = true
+		print("🟢 Immortality applied and game remote blocked (executor still allowed).")
 	end,
 }, "ImmortalButton")
 
