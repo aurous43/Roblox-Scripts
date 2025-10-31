@@ -419,3 +419,43 @@ VisualGroupbox:CreateToggle({
 		end
 	end,
 }, "NoAtmosphereToggle")
+
+--------------------------------------------------
+--// SETTINGS SECTION
+--------------------------------------------------
+
+local TabSection = Window:CreateTabSection("Settings")
+
+local Tab = TabSection:CreateTab({
+    Name = "Settings",
+    Icon = NebulaIcons:GetIcon('settings', 'Material'),
+    Columns = 2,
+}, "SettingsTab")
+
+Tab:BuildThemeGroupbox(1)
+
+Tab:BuildConfigGroupbox(2)
+
+local SettingsGroupbox = Tab:CreateGroupbox({
+    Name = "Misc.",
+    Column = 2,
+}, "SettingsGB")
+
+local Button = SettingsGroupbox:CreateButton({
+    Name = "Rejoin",
+    Icon = NebulaIcons:GetIcon('repeat', 'Material'),
+    Callback = function()
+        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, localPlayer)
+    end,
+}, "RejoinButton")
+
+local Button = SettingsGroupbox:CreateButton({
+    Name = "Destroy UI",
+    Icon = NebulaIcons:GetIcon('delete', 'Material'),
+    Callback = function()
+        Starlight:Destroy()
+    end,
+}, "DestroyButton")
+
+
+Starlight:LoadAutoloadConfig()
