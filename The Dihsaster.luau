@@ -324,6 +324,45 @@ ImmortalGroupbox:CreateToggle({
 	end,
 }, "ImmortalToggle")
 
+-- Secondary toggle: E key temporary disable
+ImmortalGroupbox:CreateToggle({
+	Name = "Temporary Disable (E)",
+	Icon = NebulaIcons:GetIcon("keyboard", "Material"),
+	CurrentValue = false,
+	Style = 2,
+	Callback = function(Value)
+		temporaryDisableEnabled = Value
+	end,
+}, "ImmortalTempDisableToggle")
+
+--------------------------------------------------
+--// Input Logic
+--------------------------------------------------
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed or not temporaryDisableEnabled then return end
+	if input.KeyCode == Enum.KeyCode.E and canTemporarilyDisable then
+		canTemporarilyDisable = false
+
+		print("🟡 Temporarily disabling immortality for 2 seconds...")
+		StopImmortality()
+
+		task.delay(2, function()
+			print("🟢 Re-enabling immortality.")
+			StartImmortality()
+
+			-- Immediately fire "Add" after re-enabling
+			local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+			if Character and InvEvent then
+				InvEvent:FireServer(Character, "Add")
+				print("✅ Invincibility reapplied immediately.")
+			end
+
+			canTemporarilyDisable = true
+		end)
+	end
+end)
+
 --------------------------------------------------
 --// CHARACTER SELECT SECTION
 --------------------------------------------------
@@ -456,6 +495,3 @@ local Button = SettingsGroupbox:CreateButton({
         Starlight:Destroy()
     end,
 }, "DestroyButton")
-
-
-Starlight:LoadAutoloadConfig()
