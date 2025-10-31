@@ -131,17 +131,16 @@ task.spawn(function()
 	end
 end)
 
-Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Connect(function()
-		task.wait(1)
-		if hitboxEnabled then resizeOtherPlayers() end
-	end)
-end)
-
-localPlayer.CharacterAdded:Connect(function()
+local function onCharacterAdded(character)
 	task.wait(1)
 	if hitboxEnabled then resizeOtherPlayers() end
+end
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(onCharacterAdded)
 end)
+
+localPlayer.CharacterAdded:Connect(onCharacterAdded)
 
 HitboxGroupbox:CreateToggle({
 	Name = "Enable Hitbox Changer",
@@ -236,102 +235,93 @@ JumpGroupbox:CreateToggle({
 --// IMMORTALITY SECTION
 --------------------------------------------------
 
+local InvEvent = workspace.game.WorkspaceStuff.SetInvincibilityScript:FindFirstChild("SetInvincibility")
+
+if not InvEvent then
+    warn("SetInvincibility event not found!")
+end
+
+--// Variables
+local ImmortalLoop = nil
+local Hooked = false
+local OldNamecall
+local mt = getrawmetatable(game)
+
+--// Functions
+local function HookRemoveBlock()
+	if Hooked then return end
+	Hooked = true
+
+	setreadonly(mt, false)
+	OldNamecall = mt.__namecall
+
+	mt.__namecall = function(self, ...)
+		local method = getnamecallmethod()
+		local args = { ... }
+
+		if method == "FireServer" and self == InvEvent then
+			if args[2] == "Remove" then
+				return -- Block "Remove" calls
+			end
+		end
+
+		return OldNamecall(self, ...)
+	end
+
+	setreadonly(mt, true)
+end
+
+local function UnhookRemoveBlock()
+	if not Hooked then return end
+	Hooked = false
+
+	setreadonly(mt, false)
+	mt.__namecall = OldNamecall
+	setreadonly(mt, true)
+end
+
+local function StartImmortality()
+	if ImmortalLoop then return end
+	HookRemoveBlock()
+
+	ImmortalLoop = task.spawn(function()
+		while task.wait(2) do
+			local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+			if Character and InvEvent then
+				InvEvent:FireServer(Character, "Add")
+			end
+		end
+	end)
+end
+
+local function StopImmortality()
+	if ImmortalLoop then
+		task.cancel(ImmortalLoop)
+		ImmortalLoop = nil
+	end
+	UnhookRemoveBlock()
+end
+
+--// Starlight UI Toggle
 local ImmortalGroupbox = Tab:CreateGroupbox({
 	Name = "Immortality",
 	Column = 2,
 }, "ImmortalGB")
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local InvEvent = workspace.game.WorkspaceStuff.SetInvincibilityScript:FindFirstChild("SetInvincibility")
-
-if not InvEvent then
-    warn("⚠️ SetInvincibility event not found!")
-    return
-end
-
---------------------------------------------------
---// VARIABLES
---------------------------------------------------
-
-local immortalityLoop
-local metatableHookEnabled = false
-local originalNamecall
-
---------------------------------------------------
---// FUNCTIONS
---------------------------------------------------
-
-local function enableImmortality()
-    -- Enable metatable hook to block Remove calls
-    if not metatableHookEnabled then
-        local mt = getrawmetatable(game)
-        setreadonly(mt, false)
-        originalNamecall = mt.__namecall
-        
-        mt.__namecall = function(self, ...)
-            local method = getnamecallmethod()
-            local args = { ... }
-            
-            if method == "FireServer" and self == InvEvent then
-                local action = args[2]
-                if action == "Remove" then
-                    return -- 🚫 Block any Remove attempts
-                end
-            end
-            
-            return originalNamecall(self, ...)
-        end
-        
-        setreadonly(mt, true)
-        metatableHookEnabled = true
-    end
-    
-    -- Start immortality loop
-    immortalityLoop = task.spawn(function()
-        while task.wait(2) do -- 🔁 Fires every 2 seconds (adjust as needed)
-            local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-            if Character and InvEvent then
-                InvEvent:FireServer(Character, "Add")
-            end
-        end
-    end)
-    
-    print("🟢 Immortality loop active — blocking Remove calls.")
-end
-
-local function disableImmortality()
-    -- Stop immortality loop
-    if immortalityLoop then
-        task.cancel(immortalityLoop)
-        immortalityLoop = nil
-    end
-    
-    -- Restore original metatable
-    if metatableHookEnabled then
-        local mt = getrawmetatable(game)
-        setreadonly(mt, false)
-        mt.__namecall = originalNamecall
-        setreadonly(mt, true)
-        metatableHookEnabled = false
-    end
-    
-    print("🔴 Immortality loop disabled.")
-end
-
-local Toggle = ImmortalGroupbox:CreateToggle({
-
-    Name = "Immortality",
-	Icon = NebulaIcons:GetIcon("shield", "Material")
-    CurrentValue = false,
-    Style = 2,
-    Callback = function(Value)
-        if Value then
-            enableImmortality()
-        else
-            disableImmortality()
-        end
-    end,
+ImmortalGroupbox:CreateToggle({
+	Name = "Immortality",
+	Icon = NebulaIcons:GetIcon("shield", "Material"),
+	CurrentValue = false,
+	Style = 2,
+	Callback = function(Value)
+		if Value then
+			StartImmortality()
+			print("🟢 Immortality enabled — blocking Remove calls.")
+		else
+			StopImmortality()
+			print("🔴 Immortality disabled — Remove calls unblocked.")
+		end
+	end,
 }, "ImmortalToggle")
 
 --------------------------------------------------
@@ -429,30 +419,3 @@ VisualGroupbox:CreateToggle({
 		end
 	end,
 }, "NoAtmosphereToggle")
-
---------------------------------------------------
---// CLEANUP ON DESTROY
---------------------------------------------------
-
-Starlight:OnDestroy(function()
-	if hitboxEnabled then
-		resetHitboxes()
-	end
-
-	if Lighting then
-		if Lighting.FogEnd ~= DefaultFogEnd then
-			Lighting.FogEnd = DefaultFogEnd
-		end
-
-		if DefaultAtmosphere and not Lighting:FindFirstChildOfClass("Atmosphere") then
-			DefaultAtmosphere:Clone().Parent = Lighting
-		end
-	end
-
-	noJumpCooldownEnabled = false
-
-	local blur = Lighting:FindFirstChildOfClass("BlurEffect")
-	if blur then
-		blur.Enabled = true
-	end
-end)
