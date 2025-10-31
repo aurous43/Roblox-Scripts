@@ -196,58 +196,64 @@ local ImmortalGroupbox = Tab:CreateGroupbox({
 }, "ImmortalGB")
 
 --------------------------------------------------
---// IMMORTALITY BUTTON (Blocks game, allows executor)
+--// IMMORTALITY SECTION
 --------------------------------------------------
 
-local immortalityEnabled = false
-local EventRef = nil
+local immortalityBlocked = false
+local InvEvent = workspace.game.WorkspaceStuff.SetInvincibilityScript:FindFirstChild("SetInvincibility")
 local oldNamecall = nil
-local allowedThisTick = false
 
-local Button = ImmortalGroupbox:CreateButton({
-	Name = "Immortality",
-	Icon = NebulaIcons:GetIcon("shield", "Material"),
-	Callback = function()
-		local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-		local Event = workspace.game.WorkspaceStuff.SetInvincibilityScript:FindFirstChild("SetInvincibility")
-		if not Event then
-			warn("SetInvincibility event not found!")
+-- 🧠 Setup metatable hook (once)
+do
+	local mt = getrawmetatable(game)
+	setreadonly(mt, false)
+	oldNamecall = mt.__namecall
+
+	mt.__namecall = function(self, ...)
+		local method = getnamecallmethod()
+		if immortalityBlocked and self == InvEvent and method == "FireServer" then
+			-- Block the game's remote calls (both Add & Remove)
 			return
 		end
-		EventRef = Event
+		return oldNamecall(self, ...)
+	end
 
-		-- 🟩 First-time setup: hook the remote
-		if not oldNamecall then
-			local mt = getrawmetatable(game)
-			setreadonly(mt, false)
-			oldNamecall = mt.__namecall
+	setreadonly(mt, true)
+end
 
-			mt.__namecall = function(self, ...)
-				local method = getnamecallmethod()
-				local args = {...}
+-- 🟩 Button: Fire Add manually
+ImmortalGroupbox:CreateButton({
+	Name = "Activate Immortality",
+	Icon = NebulaIcons:GetIcon("shield", "Material"),
+	Callback = function()
+		local Player = game:GetService("Players").LocalPlayer
+		local Character = Player.Character or Player.CharacterAdded:Wait()
 
-				if self == EventRef and method == "FireServer" and not allowedThisTick then
-					-- block all game attempts to FireServer (Add/Remove)
-					return
-				end
-
-				return oldNamecall(self, ...)
-			end
-
-			setreadonly(mt, true)
+		if InvEvent then
+			InvEvent:FireServer(Character, "Add")
+			print("🟢 Immortality applied.")
+		else
+			warn("SetInvincibility event not found!")
 		end
-
-		-- 🟢 Allow this tick for executor-fired call
-		allowedThisTick = true
-		Event:FireServer(Character, "Add")
-		task.delay(0.1, function()
-			allowedThisTick = false
-		end)
-
-		immortalityEnabled = true
-		print("🟢 Immortality applied and game remote blocked (executor still allowed).")
 	end,
-}, "ImmortalButton")
+}, "ImmortalAddButton")
+
+-- 🛑 Toggle: Block/Unblock Remote
+ImmortalGroupbox:CreateToggle({
+	Name = "Block Game Event",
+	Tooltip = "Blocks the game's Add/Remove calls while keeping manual Add usable.",
+	Icon = NebulaIcons:GetIcon("ban", "Lucide"),
+	Style = 2,
+	CurrentValue = false,
+	Callback = function(Value)
+		immortalityBlocked = Value
+		if Value then
+			print("🚫 Game SetInvincibility event blocked.")
+		else
+			print("✅ Game SetInvincibility event unblocked.")
+		end
+	end,
+}, "ImmortalBlockToggle")
 
 --------------------------------------------------
 --// NO JUMP COOLDOWN SECTION
