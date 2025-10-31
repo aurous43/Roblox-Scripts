@@ -233,17 +233,13 @@ JumpGroupbox:CreateToggle({
 }, "NoJumpCD")
 
 --------------------------------------------------
---// IMMORTALITY SECT
+--// IMMORTALITY SECTION
 --------------------------------------------------
 
 local ImmortalGroupbox = Tab:CreateGroupbox({
-	Name = "Character Select",
+	Name = "Immortality",
 	Column = 2,
 }, "ImmortalGB")
-
---------------------------------------------------
---// PERMA IMMORTALITY LOOP SCRIPT
---------------------------------------------------
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -324,7 +320,9 @@ local function disableImmortality()
 end
 
 local Toggle = ImmortalGroupbox:CreateToggle({
+
     Name = "Immortality",
+	Icon = NebulaIcons:GetIcon("shield", "Material")
     CurrentValue = false,
     Style = 2,
     Callback = function(Value)
