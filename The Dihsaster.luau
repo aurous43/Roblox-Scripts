@@ -238,7 +238,7 @@ JumpGroupbox:CreateToggle({
 local InvEvent = workspace.game.WorkspaceStuff.SetInvincibilityScript:FindFirstChild("SetInvincibility")
 
 if not InvEvent then
-    warn("SetInvincibility event not found!")
+	warn("SetInvincibility event not found!")
 end
 
 --// Variables
@@ -246,6 +246,9 @@ local ImmortalLoop = nil
 local Hooked = false
 local OldNamecall
 local mt = getrawmetatable(game)
+local temporaryDisableEnabled = false
+local canTemporarilyDisable = true
+local immortalityEnabled = false
 
 --// Functions
 local function HookRemoveBlock()
@@ -284,8 +287,10 @@ local function StartImmortality()
 	if ImmortalLoop then return end
 	HookRemoveBlock()
 
+	immortalityEnabled = true
 	ImmortalLoop = task.spawn(function()
-		while task.wait(2) do
+		while immortalityEnabled do
+			task.wait(2)
 			local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 			if Character and InvEvent then
 				InvEvent:FireServer(Character, "Add")
@@ -299,15 +304,20 @@ local function StopImmortality()
 		task.cancel(ImmortalLoop)
 		ImmortalLoop = nil
 	end
+	immortalityEnabled = false
 	UnhookRemoveBlock()
 end
 
---// Starlight UI Toggle
+--------------------------------------------------
+--// UI
+--------------------------------------------------
+
 local ImmortalGroupbox = Tab:CreateGroupbox({
 	Name = "Immortality",
 	Column = 2,
 }, "ImmortalGB")
 
+-- Main immortality toggle
 ImmortalGroupbox:CreateToggle({
 	Name = "Immortality",
 	Icon = NebulaIcons:GetIcon("shield", "Material"),
@@ -324,7 +334,7 @@ ImmortalGroupbox:CreateToggle({
 	end,
 }, "ImmortalToggle")
 
--- Secondary toggle: E key temporary disable
+-- Secondary toggle: Temporary disable with E key
 ImmortalGroupbox:CreateToggle({
 	Name = "Temporary Disable (E)",
 	Icon = NebulaIcons:GetIcon("keyboard", "Material"),
@@ -341,23 +351,25 @@ ImmortalGroupbox:CreateToggle({
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed or not temporaryDisableEnabled then return end
-	if input.KeyCode == Enum.KeyCode.E and canTemporarilyDisable then
+	if input.KeyCode == Enum.KeyCode.E and canTemporarilyDisable and immortalityEnabled then
 		canTemporarilyDisable = false
 
-		print("🟡 Temporarily disabling immortality for 2 seconds...")
+		local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+		if not Character or not InvEvent then return end
+
+		print("🟡 Temporarily disabling immortality (2s)...")
+
+		-- 1. Fire Remove
+		InvEvent:FireServer(Character, "Remove")
+
+		-- 2. Pause immortality loop
 		StopImmortality()
 
+		-- 3. Wait 2 seconds, then resume and reapply Add immediately
 		task.delay(2, function()
 			print("🟢 Re-enabling immortality.")
+			InvEvent:FireServer(Character, "Add") -- immediately reapply
 			StartImmortality()
-
-			-- Immediately fire "Add" after re-enabling
-			local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-			if Character and InvEvent then
-				InvEvent:FireServer(Character, "Add")
-				print("✅ Invincibility reapplied immediately.")
-			end
-
 			canTemporarilyDisable = true
 		end)
 	end
