@@ -233,6 +233,110 @@ JumpGroupbox:CreateToggle({
 }, "NoJumpCD")
 
 --------------------------------------------------
+--// IMMORTALITY SECT
+--------------------------------------------------
+
+local ImmortalGroupbox = Tab:CreateGroupbox({
+	Name = "Character Select",
+	Column = 2,
+}, "ImmortalGB")
+
+--------------------------------------------------
+--// PERMA IMMORTALITY LOOP SCRIPT
+--------------------------------------------------
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local InvEvent = workspace.game.WorkspaceStuff.SetInvincibilityScript:FindFirstChild("SetInvincibility")
+
+if not InvEvent then
+    warn("⚠️ SetInvincibility event not found!")
+    return
+end
+
+--------------------------------------------------
+--// VARIABLES
+--------------------------------------------------
+
+local immortalityLoop
+local metatableHookEnabled = false
+local originalNamecall
+
+--------------------------------------------------
+--// FUNCTIONS
+--------------------------------------------------
+
+local function enableImmortality()
+    -- Enable metatable hook to block Remove calls
+    if not metatableHookEnabled then
+        local mt = getrawmetatable(game)
+        setreadonly(mt, false)
+        originalNamecall = mt.__namecall
+        
+        mt.__namecall = function(self, ...)
+            local method = getnamecallmethod()
+            local args = { ... }
+            
+            if method == "FireServer" and self == InvEvent then
+                local action = args[2]
+                if action == "Remove" then
+                    return -- 🚫 Block any Remove attempts
+                end
+            end
+            
+            return originalNamecall(self, ...)
+        end
+        
+        setreadonly(mt, true)
+        metatableHookEnabled = true
+    end
+    
+    -- Start immortality loop
+    immortalityLoop = task.spawn(function()
+        while task.wait(2) do -- 🔁 Fires every 2 seconds (adjust as needed)
+            local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+            if Character and InvEvent then
+                InvEvent:FireServer(Character, "Add")
+            end
+        end
+    end)
+    
+    print("🟢 Immortality loop active — blocking Remove calls.")
+end
+
+local function disableImmortality()
+    -- Stop immortality loop
+    if immortalityLoop then
+        task.cancel(immortalityLoop)
+        immortalityLoop = nil
+    end
+    
+    -- Restore original metatable
+    if metatableHookEnabled then
+        local mt = getrawmetatable(game)
+        setreadonly(mt, false)
+        mt.__namecall = originalNamecall
+        setreadonly(mt, true)
+        metatableHookEnabled = false
+    end
+    
+    print("🔴 Immortality loop disabled.")
+end
+
+local Toggle = ImmortalGroupbox:CreateToggle({
+    Name = "Immortality",
+    CurrentValue = false,
+    Style = 2,
+    Callback = function(Value)
+        if Value then
+            enableImmortality()
+        else
+            disableImmortality()
+        end
+    end,
+}, "ImmortalToggle")
+
+--------------------------------------------------
 --// CHARACTER SELECT SECTION
 --------------------------------------------------
 
