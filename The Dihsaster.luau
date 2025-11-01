@@ -253,7 +253,7 @@ local mt = getrawmetatable(game)
 local function StartImmortality()
 	if ImmortalLoop then return end
 	ImmortalLoop = task.spawn(function()
-		while task.wait(2) do
+		while task.wait(1) do
 			local Character = game.Players.LocalPlayer.Character
 			if Character and InvEvent then
 				InvEvent:FireServer(Character, "Add")
