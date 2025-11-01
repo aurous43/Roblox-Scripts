@@ -235,7 +235,11 @@ JumpGroupbox:CreateToggle({
 --// IMMORTALITY SECTION
 --------------------------------------------------
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 local InvEvent = workspace.game.WorkspaceStuff.SetInvincibilityScript:FindFirstChild("SetInvincibility")
+local AbilitiesEvent = ReplicatedStorage.remotes:FindFirstChild("abilities")
+local localPlayer = game:GetService("Players").LocalPlayer
 
 if not InvEvent then
 	warn("SetInvincibility event not found!")
@@ -246,11 +250,10 @@ local ImmortalLoop = nil
 local Hooked = false
 local OldNamecall
 local mt = getrawmetatable(game)
-local temporaryDisableEnabled = false
-local canTemporarilyDisable = true
 local immortalityEnabled = false
+local pausedByAbility = false
 
---// Functions
+--// Hooking "Remove" calls
 local function HookRemoveBlock()
 	if Hooked then return end
 	Hooked = true
@@ -283,6 +286,7 @@ local function UnhookRemoveBlock()
 	setreadonly(mt, true)
 end
 
+--// Immortality control
 local function StartImmortality()
 	if ImmortalLoop then return end
 	HookRemoveBlock()
@@ -317,7 +321,6 @@ local ImmortalGroupbox = Tab:CreateGroupbox({
 	Column = 2,
 }, "ImmortalGB")
 
--- Main immortality toggle
 ImmortalGroupbox:CreateToggle({
 	Name = "Immortality",
 	Icon = NebulaIcons:GetIcon("shield", "Material"),
@@ -334,46 +337,40 @@ ImmortalGroupbox:CreateToggle({
 	end,
 }, "ImmortalToggle")
 
--- Secondary toggle: Temporary disable with E key
-ImmortalGroupbox:CreateToggle({
-	Name = "Temporary Disable (E)",
-	Icon = NebulaIcons:GetIcon("keyboard", "Material"),
-	CurrentValue = false,
-	Style = 2,
-	Callback = function(Value)
-		temporaryDisableEnabled = Value
-	end,
-}, "ImmortalTempDisableToggle")
-
 --------------------------------------------------
---// Input Logic
+--// Ability Event Hook
 --------------------------------------------------
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed or not temporaryDisableEnabled then return end
-	if input.KeyCode == Enum.KeyCode.E and canTemporarilyDisable and immortalityEnabled then
-		canTemporarilyDisable = false
+if AbilitiesEvent then
+	AbilitiesEvent.OnClientEvent:Connect(function(...)
+		local args = { ... }
+		-- detect FireServer(block)
+		if args[1] == "block" and immortalityEnabled and not pausedByAbility then
+			pausedByAbility = true
 
-		local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-		if not Character or not InvEvent then return end
+			local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+			if not Character or not InvEvent then return end
 
-		print("🟡 Temporarily disabling immortality (2s)...")
+			print("🟡 Ability triggered — pausing immortality for 2s...")
 
-		-- 1. Fire Remove
-		InvEvent:FireServer(Character, "Remove")
+			-- 1. Pause immortality loop
+			StopImmortality()
 
-		-- 2. Pause immortality loop
-		StopImmortality()
+			-- 2. Fire Remove
+			InvEvent:FireServer(Character, "Remove")
 
-		-- 3. Wait 2 seconds, then resume and reapply Add immediately
-		task.delay(2, function()
-			print("🟢 Re-enabling immortality.")
-			InvEvent:FireServer(Character, "Add") -- immediately reapply
-			StartImmortality()
-			canTemporarilyDisable = true
-		end)
-	end
-end)
+			-- 3. Wait 2 seconds then reapply Add and resume
+			task.delay(2, function()
+				print("🟢 Ability ended — re-enabling immortality.")
+				InvEvent:FireServer(Character, "Add")
+				StartImmortality()
+				pausedByAbility = false
+			end)
+		end
+	end)
+else
+	warn("⚠️ Abilities remote not found!")
+end
 
 --------------------------------------------------
 --// CHARACTER SELECT SECTION
