@@ -235,67 +235,26 @@ JumpGroupbox:CreateToggle({
 --// IMMORTALITY SECTION
 --------------------------------------------------
 
+--------------------------------------------------
+--// Hook abilities remote to pause immortality
+--------------------------------------------------
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
+local abilitiesRemote = ReplicatedStorage:WaitForChild("remotes"):WaitForChild("abilities")
 local InvEvent = workspace.game.WorkspaceStuff.SetInvincibilityScript:FindFirstChild("SetInvincibility")
-local AbilitiesEvent = ReplicatedStorage.remotes:FindFirstChild("abilities")
-local localPlayer = game:GetService("Players").LocalPlayer
 
-if not InvEvent then
-	warn("SetInvincibility event not found!")
-end
-
---// Variables
-local ImmortalLoop = nil
-local Hooked = false
-local OldNamecall
-local mt = getrawmetatable(game)
 local immortalityEnabled = false
 local pausedByAbility = false
+local ImmortalLoop = nil
+local OldNamecall
+local mt = getrawmetatable(game)
 
---// Hooking "Remove" calls
-local function HookRemoveBlock()
-	if Hooked then return end
-	Hooked = true
-
-	setreadonly(mt, false)
-	OldNamecall = mt.__namecall
-
-	mt.__namecall = function(self, ...)
-		local method = getnamecallmethod()
-		local args = { ... }
-
-		if method == "FireServer" and self == InvEvent then
-			if args[2] == "Remove" then
-				return -- Block "Remove" calls
-			end
-		end
-
-		return OldNamecall(self, ...)
-	end
-
-	setreadonly(mt, true)
-end
-
-local function UnhookRemoveBlock()
-	if not Hooked then return end
-	Hooked = false
-
-	setreadonly(mt, false)
-	mt.__namecall = OldNamecall
-	setreadonly(mt, true)
-end
-
---// Immortality control
+-- your existing immortality functions
 local function StartImmortality()
 	if ImmortalLoop then return end
-	HookRemoveBlock()
-
-	immortalityEnabled = true
 	ImmortalLoop = task.spawn(function()
-		while immortalityEnabled do
-			task.wait(2)
-			local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+		while task.wait(2) do
+			local Character = game.Players.LocalPlayer.Character
 			if Character and InvEvent then
 				InvEvent:FireServer(Character, "Add")
 			end
@@ -308,14 +267,49 @@ local function StopImmortality()
 		task.cancel(ImmortalLoop)
 		ImmortalLoop = nil
 	end
-	immortalityEnabled = false
-	UnhookRemoveBlock()
 end
 
 --------------------------------------------------
---// UI
+--// Hook
 --------------------------------------------------
+setreadonly(mt, false)
+OldNamecall = mt.__namecall
 
+mt.__namecall = function(self, ...)
+	local method = getnamecallmethod()
+	local args = { ... }
+
+	-- detect only ReplicatedStorage.remotes.abilities:FireServer("block")
+	if method == "FireServer" and self == abilitiesRemote and args[1] == "block" then
+		if immortalityEnabled and not pausedByAbility then
+			pausedByAbility = true
+			print("🟡 Block detected — temporarily disabling immortality")
+
+			-- pause loop and remove invincibility
+			StopImmortality()
+			local Character = game.Players.LocalPlayer.Character
+			if Character and InvEvent then
+				InvEvent:FireServer(Character, "Remove")
+			end
+
+			task.delay(2, function()
+				if Character and InvEvent then
+					InvEvent:FireServer(Character, "Add")
+					StartImmortality()
+					print("🟢 Immortality restored after block.")
+				end
+				pausedByAbility = false
+			end)
+		end
+	end
+
+	return OldNamecall(self, ...)
+end
+setreadonly(mt, true)
+
+--------------------------------------------------
+--// Example toggle integration
+--------------------------------------------------
 local ImmortalGroupbox = Tab:CreateGroupbox({
 	Name = "Immortality",
 	Column = 2,
@@ -327,15 +321,17 @@ ImmortalGroupbox:CreateToggle({
 	CurrentValue = false,
 	Style = 2,
 	Callback = function(Value)
+		immortalityEnabled = Value
 		if Value then
 			StartImmortality()
-			print("🟢 Immortality enabled — blocking Remove calls.")
+			print("🟢 Immortality enabled.")
 		else
 			StopImmortality()
-			print("🔴 Immortality disabled — Remove calls unblocked.")
+			print("🔴 Immortality disabled.")
 		end
 	end,
 }, "ImmortalToggle")
+
 
 --------------------------------------------------
 --// Ability Event Hook
