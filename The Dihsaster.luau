@@ -292,7 +292,7 @@ mt.__namecall = function(self, ...)
 				InvEvent:FireServer(Character, "Remove")
 			end
 
-			task.delay(2, function()
+			task.delay(1.5, function()
 				if Character and InvEvent then
 					InvEvent:FireServer(Character, "Add")
 					StartImmortality()
