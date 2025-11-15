@@ -10,11 +10,15 @@ mt.__namecall = newcclosure(function(self, ...)
     local m = getnamecallmethod()
     local args = {...}
 
-    if m == "FireServer" and tostring(self) == "DamageEvent" then
-        for _, v in ipairs(args) do
-            if v == Humanoid then
-                return nil
+    if m == "FireServer" then
+        if tostring(self) == "DamageEvent" then
+            for _, v in ipairs(args) do
+                if v == Humanoid then
+                    return nil
+                end
             end
+        elseif tostring(self) == "PlayerDamage" then
+            return nil
         end
     end
 
@@ -31,6 +35,8 @@ oldFireServer = hookfunction(Instance.new("RemoteEvent").FireServer, function(se
                 return nil
             end
         end
+    elseif tostring(self) == "PlayerDamage" then
+        return nil
     end
 
     return oldFireServer(self, ...)
