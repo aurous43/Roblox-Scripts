@@ -1,7 +1,6 @@
 -- Fixed version of TheGuyWhoUh's godmode script
 
-local LocalPlayer = game:GetService("Players").LocalPlayer
-local Username = workspace:WaitForChild(LocalPlayer.Name):WaitForChild("Humanoid")
+local Humanoid = workspace:WaitForChild(game:GetService("Players").LocalPlayer.Name):WaitForChild("Humanoid")
 
 local mt = getrawmetatable(game)
 setreadonly(mt, false)
@@ -13,7 +12,7 @@ mt.__namecall = newcclosure(function(self, ...)
 
     if m == "FireServer" and tostring(self) == "DamageEvent" then
         for _, v in ipairs(args) do
-            if v == Username then
+            if v == Humanoid then
                 return nil
             end
         end
@@ -28,7 +27,7 @@ oldFireServer = hookfunction(Instance.new("RemoteEvent").FireServer, function(se
 
     if tostring(self) == "DamageEvent" then
         for _, v in ipairs(args) do
-            if v == Username then
+            if v == Humanoid then
                 return nil
             end
         end
