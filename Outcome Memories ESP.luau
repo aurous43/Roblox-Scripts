@@ -10,6 +10,17 @@ local highlights = {}
 local labels = {}
 local attrConnections = {}
 
+local showSurvivorLabels = true
+
+LocalPlayer.Chatted:Connect(function(msg)
+	if msg:lower() == "/e clutter" then
+		showSurvivorLabels = not showSurvivorLabels
+		for _, model in ipairs(PLAYERS_FOLDER:GetChildren()) do
+			applyPlayerESP(model)
+		end
+	end
+end)
+
 local function getAttachPart(instance)
 	if instance:IsA("BasePart") or instance:IsA("UnionOperation") then
 		return instance
@@ -20,9 +31,7 @@ local function getAttachPart(instance)
 end
 
 local function forceTrapVisible(instance)
-	if not attrConnections[instance] then
-		attrConnections[instance] = {}
-	end
+	attrConnections[instance] = attrConnections[instance] or {}
 	if attrConnections[instance].render then return end
 	attrConnections[instance].render =
 		RunService.RenderStepped:Connect(function()
@@ -87,43 +96,67 @@ local function createLabel(part, text, color)
 	return billboard, label
 end
 
-local function createEXELabel(model)
+local function createCharacterLabel(model, color)
 	local attachPart = model:FindFirstChild("Head") or model:FindFirstChildWhichIsA("BasePart", true)
 	if not attachPart then return end
-	local billboard, label = createLabel(attachPart, "", Color3.fromRGB(255, 0, 0)) -- start with empty text
+	local billboard, label = createLabel(attachPart, "", color)
+
 	local function updateText()
 		local characterValue = model:GetAttribute("Character")
-		local stun = model:GetAttribute("StunDur")
-		if type(stun) == "number" and stun >= 0.1 then
-			if stun >= 1 then
-				local i = math.floor(stun)
-				label.Text = tostring((stun - i) >= 0.5 and i + 1 or i)
-			else
-				label.Text = string.format("%.1f", stun)
-			end
-		elseif characterValue ~= nil then
-			label.Text = tostring(characterValue) -- show Character attribute
-		else
-			label.Text = "" -- fallback if attribute missing
-		end
+		label.Text = characterValue and tostring(characterValue) or ""
 	end
+
 	updateText()
+
 	attrConnections[model] = attrConnections[model] or {}
-	attrConnections[model].stun = model:GetAttributeChangedSignal("StunDur"):Connect(updateText)
-	attrConnections[model].char = model:GetAttributeChangedSignal("Character"):Connect(updateText) -- update when Character changes
+	attrConnections[model].char =
+		model:GetAttributeChangedSignal("Character"):Connect(updateText)
+
 	labels[model] = billboard
 end
 
-local function applyPlayerESP(model)
+function applyPlayerESP(model)
 	if not model:IsA("Model") then return end
 	if model == LocalPlayer.Character then return end
 	removeESP(model)
+
 	local team = model:GetAttribute("Team")
+
 	if team == "EXE" then
 		createHighlight(model, Color3.fromRGB(255, 0, 0))
-		createEXELabel(model)
+		local attachPart = model:FindFirstChild("Head") or model:FindFirstChildWhichIsA("BasePart", true)
+		if attachPart then
+			local billboard, label = createLabel(attachPart, "", Color3.fromRGB(255, 0, 0))
+			local function updateText()
+				local stun = model:GetAttribute("StunDur")
+				local characterValue = model:GetAttribute("Character")
+				if type(stun) == "number" and stun >= 0.1 then
+					if stun >= 1 then
+						local i = math.floor(stun)
+						label.Text = tostring((stun - i) >= 0.5 and i + 1 or i)
+					else
+						label.Text = string.format("%.1f", stun)
+					end
+				elseif characterValue ~= nil then
+					label.Text = tostring(characterValue)
+				else
+					label.Text = ""
+				end
+			end
+			updateText()
+			attrConnections[model] = attrConnections[model] or {}
+			attrConnections[model].stun =
+				model:GetAttributeChangedSignal("StunDur"):Connect(updateText)
+			attrConnections[model].char =
+				model:GetAttributeChangedSignal("Character"):Connect(updateText)
+			labels[model] = billboard
+		end
+
 	elseif team == "Survivor" then
 		createHighlight(model, Color3.fromRGB(0, 0, 255))
+		if showSurvivorLabels then
+			createCharacterLabel(model, Color3.fromRGB(0, 0, 255))
+		end
 	end
 end
 
@@ -131,18 +164,23 @@ local function applyTrapESP(instance)
 	if not instance then return end
 	removeESP(instance)
 	forceTrapVisible(instance)
+
 	attrConnections[instance] = {}
-	attrConnections[instance].desc = instance.DescendantAdded:Connect(function(d)
-		if d:IsA("BasePart") or d:IsA("UnionOperation") then
-			d.Transparency = 0
-			d.LocalTransparencyModifier = 0
-		end
-	end)
-	attrConnections[instance].attr = instance.AttributeChanged:Connect(function(attr)
-		if attr == "Explode" or attr == "Owner" then
-			applyTrapESP(instance)
-		end
-	end)
+	attrConnections[instance].desc =
+		instance.DescendantAdded:Connect(function(d)
+			if d:IsA("BasePart") or d:IsA("UnionOperation") then
+				d.Transparency = 0
+				d.LocalTransparencyModifier = 0
+			end
+		end)
+
+	attrConnections[instance].attr =
+		instance.AttributeChanged:Connect(function(attr)
+			if attr == "Explode" or attr == "Owner" then
+				applyTrapESP(instance)
+			end
+		end)
+
 	task.defer(function()
 		if not instance or not instance.Parent then return end
 		if instance:GetAttribute("Explode") ~= nil then return end
@@ -150,7 +188,8 @@ local function applyTrapESP(instance)
 		createHighlight(instance, Color3.fromRGB(255, 255, 0))
 		local attachPart = getAttachPart(instance)
 		if not attachPart then return end
-		labels[instance] = select(1, createLabel(attachPart, "TRAP", Color3.fromRGB(255, 255, 0)))
+		labels[instance] =
+			select(1, createLabel(attachPart, "TRAP", Color3.fromRGB(255, 255, 0)))
 	end)
 end
 
