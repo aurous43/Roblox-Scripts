@@ -1,6 +1,7 @@
 -- roblox services
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local CoreGui = game:GetService("CoreGui")
 
 -- om folders
 local PLAYERS_FOLDER = workspace:WaitForChild("Players")
@@ -11,12 +12,13 @@ local highlights = {}
 local labels = {}
 local attrConnections = {}
 
--- function shi
+-- function stuff
 local function getAttachPart(instance)
-	if instance:IsA("BasePart") then
+	if instance:IsA("BasePart") or instance:IsA("UnionOperation") then
 		return instance
 	elseif instance:IsA("Model") then
 		return instance:FindFirstChildWhichIsA("BasePart", true)
+			or instance:FindFirstChildWhichIsA("UnionOperation", true)
 	end
 end
 
@@ -37,6 +39,7 @@ local function removeESP(instance)
 	end
 end
 
+-- visuals, you can customize these if you want
 local function createHighlight(instance, color)
 	local hl = Instance.new("Highlight")
 	hl.FillColor = color
@@ -44,7 +47,7 @@ local function createHighlight(instance, color)
 	hl.FillTransparency = 1
 	hl.OutlineTransparency = 0
 	hl.Adornee = instance
-	hl.Parent = instance
+	hl.Parent = CoreGui -- important i guess
 	highlights[instance] = hl
 end
 
@@ -70,10 +73,12 @@ local function createLabel(part, text, color)
 	return billboard, label
 end
 
--- executioner
+
+-- EXE
 local function createEXELabel(model)
-	local attachPart = model:FindFirstChild("Head")
-		or model:FindFirstChild("Sphere.001")
+	local attachPart =
+		model:FindFirstChild("Head")
+		or model:FindFirstChildWhichIsA("BasePart", true)
 
 	if not attachPart then return end
 
@@ -105,7 +110,7 @@ local function createEXELabel(model)
 	labels[model] = billboard
 end
 
--- survivors
+-- players
 local function applyPlayerESP(model)
 	if not model:IsA("Model") then return end
 	if model == LocalPlayer.Character then return end
@@ -125,21 +130,25 @@ end
 local function applyTrapESP(instance)
 	if not instance then return end
 
-	-- cleanup first
 	removeESP(instance)
 
-	-- wait a short moment for attributes to exist
-	task.delay(0.05, function()
+	-- listen to attribute changes
+	attrConnections[instance] = instance.AttributeChanged:Connect(function(attr)
+		if attr == "Explode" or attr == "Owner" then
+			applyTrapESP(instance)
+		end
+	end)
+
+	task.defer(function()
 		if not instance or not instance.Parent then return end
 
-		-- exploded trap
+		-- do not highlight/label if exploded
 		if instance:GetAttribute("Explode") ~= nil then
 			return
 		end
 
-		-- local player's trap
-		local owner = instance:GetAttribute("Owner")
-		if owner == LocalPlayer.Name then
+		-- do not highlight/label if owned by me
+		if instance:GetAttribute("Owner") == LocalPlayer.Name then
 			return
 		end
 
@@ -148,18 +157,11 @@ local function applyTrapESP(instance)
 
 		createHighlight(instance, Color3.fromRGB(255, 255, 0))
 		labels[instance] =
-			(createLabel(attachPart, "TRAP", Color3.fromRGB(255, 255, 0)))
-
-		-- attribute listeners
-		attrConnections[instance] = instance.AttributeChanged:Connect(function(attr)
-			if attr == "Explode" or attr == "Owner" then
-				applyTrapESP(instance)
-			end
-		end)
+			(select(1, createLabel(attachPart, "TRAP", Color3.fromRGB(255, 255, 0))))
 	end)
 end
 
--- safe survivors check because roblox is stupid
+-- safe players check because roblox is stupid
 for _, model in ipairs(PLAYERS_FOLDER:GetChildren()) do
 	applyPlayerESP(model)
 end
@@ -172,20 +174,19 @@ end)
 
 PLAYERS_FOLDER.ChildRemoved:Connect(removeESP)
 
-
 -- safe trap check because roblox is stupid
-local function setupTraps(trapsFolder)
-	for _, obj in ipairs(trapsFolder:GetChildren()) do
+local function setupTraps(folder)
+	for _, obj in ipairs(folder:GetChildren()) do
 		applyTrapESP(obj)
 	end
 
-	trapsFolder.ChildAdded:Connect(function(obj)
+	folder.ChildAdded:Connect(function(obj)
 		task.defer(function()
 			applyTrapESP(obj)
 		end)
 	end)
 
-	trapsFolder.ChildRemoved:Connect(removeESP)
+	folder.ChildRemoved:Connect(removeESP)
 end
 
 local trapsFolder = PROJECTILE_FOLDER:FindFirstChild("Traps")
