@@ -1,15 +1,14 @@
--- roblox stuff
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
--- om stuff
+
 local PLAYERS_FOLDER = workspace:WaitForChild("Players")
 local PROJECTILE_FOLDER = workspace:WaitForChild("Projectile")
--- state
+
 local highlights = {}
 local labels = {}
 local attrConnections = {}
--- function thingies
+
 local function getAttachPart(instance)
 	if instance:IsA("BasePart") or instance:IsA("UnionOperation") then
 		return instance
@@ -18,7 +17,7 @@ local function getAttachPart(instance)
 			or instance:FindFirstChildWhichIsA("UnionOperation", true)
 	end
 end
--- set traps transparency to 0 because highlight doesnt work with transparency
+
 local function forceTrapVisible(instance)
 	for _, desc in ipairs(instance:GetDescendants()) do
 		if desc:IsA("BasePart") or desc:IsA("UnionOperation") then
@@ -39,13 +38,10 @@ local function removeESP(instance)
 	end
 
 	if attrConnections[instance] then
-		attrConnections[instance]:Disconnect()
+		for _, conn in pairs(attrConnections[instance]) do
+			conn:Disconnect()
+		end
 		attrConnections[instance] = nil
-	end
-
-	if attrConnections[instance .. "_desc"] then
-		attrConnections[instance .. "_desc"]:Disconnect()
-		attrConnections[instance .. "_desc"] = nil
 	end
 end
 
@@ -59,7 +55,7 @@ local function createHighlight(instance, color)
 	hl.Parent = CoreGui
 	highlights[instance] = hl
 end
--- visuals, customize if you want
+
 local function createLabel(part, text, color)
 	if not part then return end
 
@@ -111,7 +107,8 @@ local function createEXELabel(model)
 
 	updateText()
 
-	attrConnections[model] =
+	attrConnections[model] = attrConnections[model] or {}
+	attrConnections[model].stun =
 		model:GetAttributeChangedSignal("StunDur"):Connect(updateText)
 
 	labels[model] = billboard
@@ -139,14 +136,16 @@ local function applyTrapESP(instance)
 
 	forceTrapVisible(instance)
 
-	attrConnections[instance .. "_desc"] =
+	attrConnections[instance] = {}
+
+	attrConnections[instance].desc =
 		instance.DescendantAdded:Connect(function(desc)
 			if desc:IsA("BasePart") or desc:IsA("UnionOperation") then
 				desc.Transparency = 0
 			end
 		end)
 
-	attrConnections[instance] =
+	attrConnections[instance].attr =
 		instance.AttributeChanged:Connect(function(attr)
 			if attr == "Explode" or attr == "Owner" then
 				applyTrapESP(instance)
@@ -156,9 +155,8 @@ local function applyTrapESP(instance)
 	task.defer(function()
 		if not instance or not instance.Parent then return end
 		if instance:GetAttribute("Explode") ~= nil then return end
-		-- ignore if it has exploded already
 		if instance:GetAttribute("Owner") == LocalPlayer.Name then return end
-        -- ignore if localplayer owns it
+
 		local attachPart = getAttachPart(instance)
 		if not attachPart then return end
 
