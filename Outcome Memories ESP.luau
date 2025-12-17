@@ -90,9 +90,9 @@ end
 local function createEXELabel(model)
 	local attachPart = model:FindFirstChild("Head") or model:FindFirstChildWhichIsA("BasePart", true)
 	if not attachPart then return end
-	local billboard, label = createLabel(attachPart, "", Color3.fromRGB(255, 0, 0)) -- initial empty text
+	local billboard, label = createLabel(attachPart, "", Color3.fromRGB(255, 0, 0)) -- start with empty text
 	local function updateText()
-		local value = model:GetAttribute("EXE") -- replace "EXE" with your desired attribute
+		local characterValue = model:GetAttribute("Character")
 		local stun = model:GetAttribute("StunDur")
 		if type(stun) == "number" and stun >= 0.1 then
 			if stun >= 1 then
@@ -101,16 +101,16 @@ local function createEXELabel(model)
 			else
 				label.Text = string.format("%.1f", stun)
 			end
-		elseif value ~= nil then
-			label.Text = tostring(value) -- set label to attribute value
+		elseif characterValue ~= nil then
+			label.Text = tostring(characterValue) -- show Character attribute
 		else
-			label.Text = "" -- fallback
+			label.Text = "" -- fallback if attribute missing
 		end
 	end
 	updateText()
 	attrConnections[model] = attrConnections[model] or {}
 	attrConnections[model].stun = model:GetAttributeChangedSignal("StunDur"):Connect(updateText)
-	attrConnections[model].exe = model:GetAttributeChangedSignal("EXE"):Connect(updateText) -- updates when attribute changes
+	attrConnections[model].char = model:GetAttributeChangedSignal("Character"):Connect(updateText) -- update when Character changes
 	labels[model] = billboard
 end
 
