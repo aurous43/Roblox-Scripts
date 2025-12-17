@@ -10,7 +10,7 @@ local highlights = {}
 local labels = {}
 local attrConnections = {}
 
-local showSurvivorLabels = true
+local showSurvivorLabels = false
 
 LocalPlayer.Chatted:Connect(function(msg)
 	if msg:lower() == "/e clutter" then
