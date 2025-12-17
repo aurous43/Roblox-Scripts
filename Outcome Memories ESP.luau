@@ -1,24 +1,29 @@
--- roblox services
+-- roblox stuff
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
-
--- om folders
+-- om stuff
 local PLAYERS_FOLDER = workspace:WaitForChild("Players")
 local PROJECTILE_FOLDER = workspace:WaitForChild("Projectile")
-
 -- state
 local highlights = {}
 local labels = {}
 local attrConnections = {}
-
--- function stuff
+-- function thingies
 local function getAttachPart(instance)
 	if instance:IsA("BasePart") or instance:IsA("UnionOperation") then
 		return instance
 	elseif instance:IsA("Model") then
 		return instance:FindFirstChildWhichIsA("BasePart", true)
 			or instance:FindFirstChildWhichIsA("UnionOperation", true)
+	end
+end
+-- set transparency to 0 because highlight doesnt work with transparency
+local function forceTrapVisible(instance)
+	for _, desc in ipairs(instance:GetDescendants()) do
+		if desc:IsA("BasePart") or desc:IsA("UnionOperation") then
+			desc.Transparency = 0
+		end
 	end
 end
 
@@ -37,9 +42,13 @@ local function removeESP(instance)
 		attrConnections[instance]:Disconnect()
 		attrConnections[instance] = nil
 	end
+
+	if attrConnections[instance .. "_desc"] then
+		attrConnections[instance .. "_desc"]:Disconnect()
+		attrConnections[instance .. "_desc"] = nil
+	end
 end
 
--- visuals, you can customize these if you want
 local function createHighlight(instance, color)
 	local hl = Instance.new("Highlight")
 	hl.FillColor = color
@@ -47,10 +56,10 @@ local function createHighlight(instance, color)
 	hl.FillTransparency = 1
 	hl.OutlineTransparency = 0
 	hl.Adornee = instance
-	hl.Parent = CoreGui -- important i guess
+	hl.Parent = CoreGui
 	highlights[instance] = hl
 end
-
+-- visuals, customize if you want
 local function createLabel(part, text, color)
 	if not part then return end
 
@@ -73,8 +82,6 @@ local function createLabel(part, text, color)
 	return billboard, label
 end
 
-
--- EXE
 local function createEXELabel(model)
 	local attachPart =
 		model:FindFirstChild("Head")
@@ -110,7 +117,6 @@ local function createEXELabel(model)
 	labels[model] = billboard
 end
 
--- players
 local function applyPlayerESP(model)
 	if not model:IsA("Model") then return end
 	if model == LocalPlayer.Character then return end
@@ -126,32 +132,33 @@ local function applyPlayerESP(model)
 	end
 end
 
--- traps
 local function applyTrapESP(instance)
 	if not instance then return end
 
 	removeESP(instance)
 
-	-- listen to attribute changes
-	attrConnections[instance] = instance.AttributeChanged:Connect(function(attr)
-		if attr == "Explode" or attr == "Owner" then
-			applyTrapESP(instance)
-		end
-	end)
+	forceTrapVisible(instance)
+
+	attrConnections[instance .. "_desc"] =
+		instance.DescendantAdded:Connect(function(desc)
+			if desc:IsA("BasePart") or desc:IsA("UnionOperation") then
+				desc.Transparency = 0
+			end
+		end)
+
+	attrConnections[instance] =
+		instance.AttributeChanged:Connect(function(attr)
+			if attr == "Explode" or attr == "Owner" then
+				applyTrapESP(instance)
+			end
+		end)
 
 	task.defer(function()
 		if not instance or not instance.Parent then return end
-
-		-- do not highlight/label if exploded
-		if instance:GetAttribute("Explode") ~= nil then
-			return
-		end
-
-		-- do not highlight/label if owned by me
-		if instance:GetAttribute("Owner") == LocalPlayer.Name then
-			return
-		end
-
+		if instance:GetAttribute("Explode") ~= nil then return end
+		-- ignore if it has exploded already
+		if instance:GetAttribute("Owner") == LocalPlayer.Name then return end
+        -- ignore if localplayer owns it
 		local attachPart = getAttachPart(instance)
 		if not attachPart then return end
 
@@ -161,7 +168,6 @@ local function applyTrapESP(instance)
 	end)
 end
 
--- safe players check because roblox is stupid
 for _, model in ipairs(PLAYERS_FOLDER:GetChildren()) do
 	applyPlayerESP(model)
 end
@@ -174,7 +180,6 @@ end)
 
 PLAYERS_FOLDER.ChildRemoved:Connect(removeESP)
 
--- safe trap check because roblox is stupid
 local function setupTraps(folder)
 	for _, obj in ipairs(folder:GetChildren()) do
 		applyTrapESP(obj)
