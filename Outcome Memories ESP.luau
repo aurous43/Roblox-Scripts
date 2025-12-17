@@ -18,7 +18,7 @@ local function getAttachPart(instance)
 			or instance:FindFirstChildWhichIsA("UnionOperation", true)
 	end
 end
--- set transparency to 0 because highlight doesnt work with transparency
+-- set traps transparency to 0 because highlight doesnt work with transparency
 local function forceTrapVisible(instance)
 	for _, desc in ipairs(instance:GetDescendants()) do
 		if desc:IsA("BasePart") or desc:IsA("UnionOperation") then
