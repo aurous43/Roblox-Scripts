@@ -12,6 +12,23 @@ local attrConnections = {}
 
 local showSurvivorLabels = false
 
+local CHARACTER_COLORS = {
+	Sonic = Color3.fromRGB(0, 9, 255),
+	Tails = Color3.fromRGB(255, 236, 0),
+	Knuckles = Color3.fromRGB(255, 21, 0),
+	Amy = Color3.fromRGB(248, 0, 255),
+	Cream = Color3.fromRGB(255, 218, 132),
+	Eggman = Color3.fromRGB(176, 11, 0),
+	MetalSonic = Color3.fromRGB(1, 1, 193),
+	Silver = Color3.fromRGB(255, 255, 255),
+	Blaze = Color3.fromRGB(184, 131, 255),
+}
+
+local function getCharacterColor(model, fallback)
+	local c = model:GetAttribute("Character")
+	return CHARACTER_COLORS[c] or fallback
+end
+
 LocalPlayer.Chatted:Connect(function(msg)
 	if msg:lower() == "/e clutter" then
 		showSurvivorLabels = not showSurvivorLabels
@@ -96,21 +113,30 @@ local function createLabel(part, text, color)
 	return billboard, label
 end
 
-local function createCharacterLabel(model, color)
+local function createCharacterLabel(model, fallbackColor)
 	local attachPart = model:FindFirstChild("Head") or model:FindFirstChildWhichIsA("BasePart", true)
 	if not attachPart then return end
-	local billboard, label = createLabel(attachPart, "", color)
 
-	local function updateText()
-		local characterValue = model:GetAttribute("Character")
-		label.Text = characterValue and tostring(characterValue) or ""
+	local function getColor()
+		return getCharacterColor(model, fallbackColor)
 	end
 
-	updateText()
+	local billboard, label = createLabel(attachPart, "", getColor())
+
+	local function update()
+		label.Text = tostring(model:GetAttribute("Character") or "")
+		label.TextColor3 = getColor()
+		if highlights[model] then
+			highlights[model].FillColor = getColor()
+			highlights[model].OutlineColor = getColor()
+		end
+	end
+
+	update()
 
 	attrConnections[model] = attrConnections[model] or {}
 	attrConnections[model].char =
-		model:GetAttributeChangedSignal("Character"):Connect(updateText)
+		model:GetAttributeChangedSignal("Character"):Connect(update)
 
 	labels[model] = billboard
 end
@@ -123,13 +149,22 @@ function applyPlayerESP(model)
 	local team = model:GetAttribute("Team")
 
 	if team == "EXE" then
-		createHighlight(model, Color3.fromRGB(255, 0, 0))
+		local color = getCharacterColor(model, Color3.fromRGB(255, 0, 0))
+		createHighlight(model, color)
+
 		local attachPart = model:FindFirstChild("Head") or model:FindFirstChildWhichIsA("BasePart", true)
 		if attachPart then
-			local billboard, label = createLabel(attachPart, "", Color3.fromRGB(255, 0, 0))
+			local billboard, label = createLabel(attachPart, "", color)
+
 			local function updateText()
 				local stun = model:GetAttribute("StunDur")
-				local characterValue = model:GetAttribute("Character")
+				local char = model:GetAttribute("Character")
+				label.TextColor3 = getCharacterColor(model, Color3.fromRGB(255, 0, 0))
+				if highlights[model] then
+					local c = label.TextColor3
+					highlights[model].FillColor = c
+					highlights[model].OutlineColor = c
+				end
 				if type(stun) == "number" and stun >= 0.1 then
 					if stun >= 1 then
 						local i = math.floor(stun)
@@ -137,23 +172,27 @@ function applyPlayerESP(model)
 					else
 						label.Text = string.format("%.1f", stun)
 					end
-				elseif characterValue ~= nil then
-					label.Text = tostring(characterValue)
+				elseif char then
+					label.Text = tostring(char)
 				else
 					label.Text = ""
 				end
 			end
+
 			updateText()
+
 			attrConnections[model] = attrConnections[model] or {}
 			attrConnections[model].stun =
 				model:GetAttributeChangedSignal("StunDur"):Connect(updateText)
 			attrConnections[model].char =
 				model:GetAttributeChangedSignal("Character"):Connect(updateText)
+
 			labels[model] = billboard
 		end
 
 	elseif team == "Survivor" then
-		createHighlight(model, Color3.fromRGB(0, 0, 255))
+		local color = getCharacterColor(model, Color3.fromRGB(0, 0, 255))
+		createHighlight(model, color)
 		if showSurvivorLabels then
 			createCharacterLabel(model, Color3.fromRGB(0, 0, 255))
 		end
