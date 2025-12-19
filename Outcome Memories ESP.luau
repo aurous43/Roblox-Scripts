@@ -189,7 +189,7 @@ local function applyTrapESP(instance)
 		local attachPart = getAttachPart(instance)
 		if not attachPart then return end
 		labels[instance] =
-			select(1, createLabel(attachPart, "TRAP", Color3.fromRGB(255, 255, 0)))
+			select(1, createLabel(attachPart, "Trap", Color3.fromRGB(255, 255, 0)))
 	end)
 end
 
