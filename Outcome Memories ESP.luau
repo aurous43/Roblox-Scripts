@@ -159,19 +159,14 @@ function applyPlayerESP(model)
 			local function updateText()
 				local stun = model:GetAttribute("StunDur")
 				local char = model:GetAttribute("Character")
-				label.TextColor3 = getCharacterColor(model, Color3.fromRGB(255, 0, 0))
+				local c = getCharacterColor(model, Color3.fromRGB(255, 0, 0))
+				label.TextColor3 = c
 				if highlights[model] then
-					local c = label.TextColor3
 					highlights[model].FillColor = c
 					highlights[model].OutlineColor = c
 				end
 				if type(stun) == "number" and stun >= 0.1 then
-					if stun >= 1 then
-						local i = math.floor(stun)
-						label.Text = tostring((stun - i) >= 0.5 and i + 1 or i)
-					else
-						label.Text = string.format("%.1f", stun)
-					end
+					label.Text = string.format("%.1f", stun)
 				elseif char then
 					label.Text = tostring(char)
 				else
