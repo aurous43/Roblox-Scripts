@@ -100,21 +100,27 @@ local function createLabel(part, text, color)
 	billboard.Size = UDim2.new(0, 60, 0, 15)
 	billboard.StudsOffset = Vector3.new(0, 2.8, 0)
 	billboard.AlwaysOnTop = true
+
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.new(1, 0, 1, 0)
 	label.BackgroundTransparency = 1
 	label.Text = text
 	label.TextColor3 = color
 	label.TextStrokeTransparency = 0
+	label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 	label.TextScaled = true
 	label.Font = Enum.Font.Arcade
 	label.Parent = billboard
+
 	billboard.Parent = part
 	return billboard, label
 end
 
 local function createCharacterLabel(model, fallbackColor)
-	local attachPart = model:FindFirstChild("Head") or model:FindFirstChild("Sphere.001") or model:FindFirstChild("HumanoidRootPart")
+	local attachPart =
+		model:FindFirstChild("Head")
+		or model:FindFirstChild("Sphere.001")
+		or model:FindFirstChild("HumanoidRootPart")
 	if not attachPart then return end
 
 	local function getColor()
@@ -124,8 +130,21 @@ local function createCharacterLabel(model, fallbackColor)
 	local billboard, label = createLabel(attachPart, "", getColor())
 
 	local function update()
-		label.Text = tostring(model:GetAttribute("Character") or "")
+		local char = model:GetAttribute("Character")
+
+		if char == "TailsDoll" then
+			char = "Tripwire"
+		end
+
+		label.Text = string.upper(tostring(char or ""))
 		label.TextColor3 = getColor()
+
+		if char == "Sonic" or char == "MetalSonic" then
+			label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+		else
+			label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		end
+
 		if highlights[model] then
 			highlights[model].FillColor = getColor()
 			highlights[model].OutlineColor = getColor()
@@ -157,23 +176,35 @@ function applyPlayerESP(model)
 			local billboard, label = createLabel(attachPart, "", color)
 
 			local function updateText()
-				local stun = model:GetAttribute("StunDur")
-				local char = model:GetAttribute("Character")
-				local c = getCharacterColor(model, Color3.fromRGB(255, 0, 0))
-				label.TextColor3 = c
-				if highlights[model] then
-					highlights[model].FillColor = c
-					highlights[model].OutlineColor = c
-				end
-				if type(stun) == "number" and stun >= 0.1 then
-					label.Text = string.format("%.1f", stun)
-				elseif char then
-					label.Text = tostring(char)
-				else
-					label.Text = ""
-				end
-			end
+	local stun = model:GetAttribute("StunDur")
+	local char = model:GetAttribute("Character")
+	local c = getCharacterColor(model, Color3.fromRGB(255, 0, 0))
 
+	if char == "TailsDoll" then
+		char = "Tripwire"
+	end
+
+	label.TextColor3 = c
+
+	if char == "Sonic" or char == "MetalSonic" then
+		label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+	else
+		label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	end
+
+	if highlights[model] then
+		highlights[model].FillColor = c
+		highlights[model].OutlineColor = c
+	end
+
+	if type(stun) == "number" and stun >= 0.1 then
+		label.Text = string.upper(string.format("%.1f", stun))
+	elseif char then
+		label.Text = string.upper(tostring(char))
+	else
+		label.Text = ""
+	end
+end
 			updateText()
 
 			attrConnections[model] = attrConnections[model] or {}
