@@ -114,7 +114,7 @@ local function createLabel(part, text, color)
 end
 
 local function createCharacterLabel(model, fallbackColor)
-	local attachPart = model:FindFirstChild("Head") or model:FindFirstChildWhichIsA("BasePart", true)
+	local attachPart = model:FindFirstChild("Head") or model:FindFirstChild("Sphere_001") or model:FindFirstChild("HumanoidRootPart")
 	if not attachPart then return end
 
 	local function getColor()
