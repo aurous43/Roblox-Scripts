@@ -180,10 +180,6 @@ function applyPlayerESP(model)
 	local char = model:GetAttribute("Character")
 	local c = getCharacterColor(model, Color3.fromRGB(255, 0, 0))
 
-	if char == "2011x" then
-		char = "2011 X"
-	end
-
 	if char == "TailsDoll" then
 		char = "Tripwire"
 	end
