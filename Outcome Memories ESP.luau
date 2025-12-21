@@ -11,6 +11,7 @@ local labels = {}
 local attrConnections = {}
 
 local showSurvivorLabels = false
+local espEnabled = true
 
 local CHARACTER_COLORS = {
 	Sonic = Color3.fromRGB(0, 9, 255),
@@ -28,15 +29,6 @@ local function getCharacterColor(model, fallback)
 	local c = model:GetAttribute("Character")
 	return CHARACTER_COLORS[c] or fallback
 end
-
-LocalPlayer.Chatted:Connect(function(msg)
-	if msg:lower() == "/e clutter" then
-		showSurvivorLabels = not showSurvivorLabels
-		for _, model in ipairs(PLAYERS_FOLDER:GetChildren()) do
-			applyPlayerESP(model)
-		end
-	end
-end)
 
 local function getAttachPart(instance)
 	if instance:IsA("BasePart") or instance:IsA("UnionOperation") then
@@ -107,7 +99,6 @@ local function createLabel(part, text, color)
 	label.Text = text
 	label.TextColor3 = color
 	label.TextStrokeTransparency = 0
-	label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 	label.TextScaled = true
 	label.Font = Enum.Font.Arcade
 	label.Parent = billboard
@@ -117,6 +108,7 @@ local function createLabel(part, text, color)
 end
 
 local function createCharacterLabel(model, fallbackColor)
+	if not espEnabled then return end
 	local attachPart =
 		model:FindFirstChild("Head")
 		or model:FindFirstChild("Sphere.001")
@@ -131,20 +123,16 @@ local function createCharacterLabel(model, fallbackColor)
 
 	local function update()
 		local char = model:GetAttribute("Character")
-
 		if char == "TailsDoll" then
 			char = "Tripwire"
 		end
-
 		label.Text = string.upper(tostring(char or ""))
 		label.TextColor3 = getColor()
-
 		if char == "Sonic" or char == "MetalSonic" then
 			label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
 		else
 			label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 		end
-
 		if highlights[model] then
 			highlights[model].FillColor = getColor()
 			highlights[model].OutlineColor = getColor()
@@ -161,6 +149,7 @@ local function createCharacterLabel(model, fallbackColor)
 end
 
 function applyPlayerESP(model)
+	if not espEnabled then return end
 	if not model:IsA("Model") then return end
 	if model == LocalPlayer.Character then return end
 	removeESP(model)
@@ -176,35 +165,31 @@ function applyPlayerESP(model)
 			local billboard, label = createLabel(attachPart, "", color)
 
 			local function updateText()
-	local stun = model:GetAttribute("StunDur")
-	local char = model:GetAttribute("Character")
-	local c = getCharacterColor(model, Color3.fromRGB(255, 0, 0))
+				local stun = model:GetAttribute("StunDur")
+				local char = model:GetAttribute("Character")
+				local c = getCharacterColor(model, Color3.fromRGB(255, 0, 0))
+				if char == "TailsDoll" then
+					char = "Tripwire"
+				end
+				label.TextColor3 = c
+				if char == "Sonic" or char == "MetalSonic" then
+					label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+				else
+					label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+				end
+				if highlights[model] then
+					highlights[model].FillColor = c
+					highlights[model].OutlineColor = c
+				end
+				if type(stun) == "number" and stun >= 0.1 then
+					label.Text = string.upper(string.format("%.1f", stun))
+				elseif char then
+					label.Text = string.upper(tostring(char))
+				else
+					label.Text = ""
+				end
+			end
 
-	if char == "TailsDoll" then
-		char = "Tripwire"
-	end
-
-	label.TextColor3 = c
-
-	if char == "Sonic" or char == "MetalSonic" then
-		label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
-	else
-		label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-	end
-
-	if highlights[model] then
-		highlights[model].FillColor = c
-		highlights[model].OutlineColor = c
-	end
-
-	if type(stun) == "number" and stun >= 0.1 then
-		label.Text = string.upper(string.format("%.1f", stun))
-	elseif char then
-		label.Text = string.upper(tostring(char))
-	else
-		label.Text = ""
-	end
-end
 			updateText()
 
 			attrConnections[model] = attrConnections[model] or {}
@@ -226,6 +211,7 @@ end
 end
 
 local function applyTrapESP(instance)
+	if not espEnabled then return end
 	if not instance then return end
 	removeESP(instance)
 	forceTrapVisible(instance)
@@ -257,6 +243,40 @@ local function applyTrapESP(instance)
 			select(1, createLabel(attachPart, "TRAP", Color3.fromRGB(255, 255, 0)))
 	end)
 end
+
+LocalPlayer.Chatted:Connect(function(msg)
+	msg = msg:lower()
+
+	if msg == "/e hide" then
+		espEnabled = not espEnabled
+		if not espEnabled then
+			for inst in pairs(highlights) do
+				removeESP(inst)
+			end
+			for inst in pairs(labels) do
+				removeESP(inst)
+			end
+		else
+			for _, model in ipairs(PLAYERS_FOLDER:GetChildren()) do
+				applyPlayerESP(model)
+			end
+			local traps = PROJECTILE_FOLDER:FindFirstChild("Traps")
+			if traps then
+				for _, t in ipairs(traps:GetChildren()) do
+					applyTrapESP(t)
+				end
+			end
+		end
+
+	elseif msg == "/e clutter" then
+		showSurvivorLabels = not showSurvivorLabels
+		if espEnabled then
+			for _, model in ipairs(PLAYERS_FOLDER:GetChildren()) do
+				applyPlayerESP(model)
+			end
+		end
+	end
+end)
 
 for _, model in ipairs(PLAYERS_FOLDER:GetChildren()) do
 	applyPlayerESP(model)
@@ -292,3 +312,4 @@ else
 		end
 	end)
 end
+
