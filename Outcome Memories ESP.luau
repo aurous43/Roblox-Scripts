@@ -211,61 +211,38 @@ function applyPlayerESP(model)
 end
 
 local function applyTrapESP(instance)
-    if not espEnabled then return end
-    if not instance then return end
-    removeESP(instance)
-    forceTrapVisible(instance)
+	if not espEnabled then return end
+	if not instance then return end
+	removeESP(instance)
+	forceTrapVisible(instance)
 
-    attrConnections[instance] = {}
-    attrConnections[instance].desc =
-        instance.DescendantAdded:Connect(function(d)
-            if d:IsA("BasePart") or d:IsA("UnionOperation") then
-                d.Transparency = 0
-                d.LocalTransparencyModifier = 0
-            end
-        end)
+	attrConnections[instance] = {}
+	attrConnections[instance].desc =
+		instance.DescendantAdded:Connect(function(d)
+			if d:IsA("BasePart") or d:IsA("UnionOperation") then
+				d.Transparency = 0
+				d.LocalTransparencyModifier = 0
+			end
+		end)
 
-    attrConnections[instance].attr =
-        instance.AttributeChanged:Connect(function(attr)
-            if attr == "Explode" or attr == "Owner" then
-                applyTrapESP(instance)
-            end
-        end)
+	attrConnections[instance].attr =
+		instance.AttributeChanged:Connect(function(attr)
+			if attr == "Explode" or attr == "Owner" then
+				applyTrapESP(instance)
+			end
+		end)
 
-    -- ✅ This is the CORRECT task.spawn block:
-    task.spawn(function()
-        if not instance or not instance.Parent then return end
-
-        -- Wait up to 1 second for attributes to initialize
-        local start = os.clock()
-        while instance.Parent and os.clock() - start < 1 do
-            local owner = instance:GetAttribute("Owner")
-            local explode = instance:GetAttribute("Explode")
-
-            -- Skip your own traps
-            if owner == LocalPlayer.Name then return end
-
-            -- Trap is valid once Explode is still nil (armed trap)
-            if explode == nil then
-                break
-            end
-
-            RunService.Heartbeat:Wait()
-        end
-
-        if not instance or not instance.Parent then return end
-        if instance:GetAttribute("Owner") == LocalPlayer.Name then return end
-        if instance:GetAttribute("Explode") ~= nil then return end
-
-        createHighlight(instance, Color3.fromRGB(255, 255, 0))
-
-        local attachPart = getAttachPart(instance)
-        if attachPart then
-            labels[instance] =
-                select(1, createLabel(attachPart, "TRAP", Color3.fromRGB(255, 255, 0)))
-        end
-    end)
-end  -- ← Don't forget to close the function!
+	task.defer(function()
+		if not instance or not instance.Parent then return end
+		if instance:GetAttribute("Explode") ~= nil then return end
+		if instance:GetAttribute("Owner") == LocalPlayer.Name then return end
+		createHighlight(instance, Color3.fromRGB(255, 255, 0))
+		local attachPart = getAttachPart(instance)
+		if not attachPart then return end
+		labels[instance] =
+			select(1, createLabel(attachPart, "TRAP", Color3.fromRGB(255, 255, 0)))
+	end)
+end
 
 LocalPlayer.Chatted:Connect(function(msg)
 	msg = msg:lower()
@@ -335,4 +312,3 @@ else
 		end
 	end)
 end
-
