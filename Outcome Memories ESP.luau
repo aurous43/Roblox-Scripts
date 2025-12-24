@@ -42,6 +42,7 @@ end
 local function forceTrapVisible(instance)
 	attrConnections[instance] = attrConnections[instance] or {}
 	if attrConnections[instance].render then return end
+
 	attrConnections[instance].render =
 		RunService.RenderStepped:Connect(function()
 			if not instance or not instance.Parent then return end
@@ -88,6 +89,7 @@ end
 
 local function createLabel(part, text, color)
 	if not part then return end
+
 	local billboard = Instance.new("BillboardGui")
 	billboard.Size = UDim2.new(0, 60, 0, 15)
 	billboard.StudsOffset = Vector3.new(0, 2.8, 0)
@@ -109,6 +111,7 @@ end
 
 local function createCharacterLabel(model, fallbackColor)
 	if not espEnabled then return end
+
 	local attachPart =
 		model:FindFirstChild("Head")
 		or model:FindFirstChild("Sphere.001")
@@ -126,13 +129,16 @@ local function createCharacterLabel(model, fallbackColor)
 		if char == "TailsDoll" then
 			char = "Tripwire"
 		end
+
 		label.Text = string.upper(tostring(char or ""))
 		label.TextColor3 = getColor()
+
 		if char == "Sonic" or char == "MetalSonic" then
 			label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
 		else
 			label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 		end
+
 		if highlights[model] then
 			highlights[model].FillColor = getColor()
 			highlights[model].OutlineColor = getColor()
@@ -152,6 +158,7 @@ function applyPlayerESP(model)
 	if not espEnabled then return end
 	if not model:IsA("Model") then return end
 	if model == LocalPlayer.Character then return end
+
 	removeESP(model)
 
 	local team = model:GetAttribute("Team")
@@ -160,7 +167,10 @@ function applyPlayerESP(model)
 		local color = getCharacterColor(model, Color3.fromRGB(255, 0, 0))
 		createHighlight(model, color)
 
-		local attachPart = model:FindFirstChild("Head") or model:FindFirstChildWhichIsA("BasePart", true)
+		local attachPart =
+			model:FindFirstChild("Head")
+			or model:FindFirstChildWhichIsA("BasePart", true)
+
 		if attachPart then
 			local billboard, label = createLabel(attachPart, "", color)
 
@@ -168,19 +178,24 @@ function applyPlayerESP(model)
 				local stun = model:GetAttribute("StunDur")
 				local char = model:GetAttribute("Character")
 				local c = getCharacterColor(model, Color3.fromRGB(255, 0, 0))
+
 				if char == "TailsDoll" then
 					char = "Tripwire"
 				end
+
 				label.TextColor3 = c
+
 				if char == "Sonic" or char == "MetalSonic" then
 					label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
 				else
 					label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 				end
+
 				if highlights[model] then
 					highlights[model].FillColor = c
 					highlights[model].OutlineColor = c
 				end
+
 				if type(stun) == "number" and stun >= 0.1 then
 					label.Text = string.upper(string.format("%.1f", stun))
 				elseif char then
@@ -253,6 +268,7 @@ LocalPlayer.Chatted:Connect(function(msg)
 
 	if msg == "/e hide" then
 		espEnabled = not espEnabled
+
 		if not espEnabled then
 			for inst in pairs(highlights) do
 				removeESP(inst)
@@ -264,6 +280,7 @@ LocalPlayer.Chatted:Connect(function(msg)
 			for _, model in ipairs(PLAYERS_FOLDER:GetChildren()) do
 				applyPlayerESP(model)
 			end
+
 			local traps = PROJECTILE_FOLDER:FindFirstChild("Traps")
 			if traps then
 				for _, t in ipairs(traps:GetChildren()) do
@@ -294,25 +311,57 @@ end)
 
 PLAYERS_FOLDER.ChildRemoved:Connect(removeESP)
 
+-- =========================
+-- TRAPS FOLDER LIFECYCLE FIX
+-- =========================
+
+local currentTrapsFolder = nil
+local trapsConnections = {}
+
+local function clearTrapConnections()
+	for _, c in ipairs(trapsConnections) do
+		c:Disconnect()
+	end
+	table.clear(trapsConnections)
+	currentTrapsFolder = nil
+end
+
 local function setupTraps(folder)
+	clearTrapConnections()
+	currentTrapsFolder = folder
+
 	for _, obj in ipairs(folder:GetChildren()) do
 		applyTrapESP(obj)
 	end
-	folder.ChildAdded:Connect(function(obj)
-		task.defer(function()
-			applyTrapESP(obj)
+
+	table.insert(trapsConnections,
+		folder.ChildAdded:Connect(function(obj)
+			task.defer(function()
+				applyTrapESP(obj)
+			end)
 		end)
-	end)
-	folder.ChildRemoved:Connect(removeESP)
+	)
+
+	table.insert(trapsConnections,
+		folder.ChildRemoved:Connect(function(obj)
+			removeESP(obj)
+		end)
+	)
 end
+
+PROJECTILE_FOLDER.ChildAdded:Connect(function(child)
+	if child.Name == "Traps" then
+		setupTraps(child)
+	end
+end)
+
+PROJECTILE_FOLDER.ChildRemoved:Connect(function(child)
+	if child == currentTrapsFolder then
+		clearTrapConnections()
+	end
+end)
 
 local trapsFolder = PROJECTILE_FOLDER:FindFirstChild("Traps")
 if trapsFolder then
 	setupTraps(trapsFolder)
-else
-	PROJECTILE_FOLDER.ChildAdded:Connect(function(child)
-		if child.Name == "Traps" then
-			setupTraps(child)
-		end
-	end)
 end
