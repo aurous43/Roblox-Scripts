@@ -234,7 +234,7 @@ local function applyTrapESP(instance)
 
 task.spawn(function()
 	if not instance or not instance.Parent then return end
-end)
+end
 
 	local start = os.clock()
 	while instance.Parent and os.clock() - start < 1 do
