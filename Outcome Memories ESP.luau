@@ -267,8 +267,6 @@ local function applyTrapESP(instance)
     end)
 end  -- ← Don't forget to close the function!
 
-end -- ✅ CLOSES applyTrapESP
-
 LocalPlayer.Chatted:Connect(function(msg)
 	msg = msg:lower()
 
