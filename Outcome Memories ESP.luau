@@ -235,19 +235,13 @@ local function applyTrapESP(instance)
 task.spawn(function()
 	if not instance or not instance.Parent then return end
 
-	-- Wait up to 1 second for attributes to initialize
 	local start = os.clock()
 	while instance.Parent and os.clock() - start < 1 do
 		local owner = instance:GetAttribute("Owner")
 		local explode = instance:GetAttribute("Explode")
 
-		-- Skip your own traps
 		if owner == LocalPlayer.Name then return end
-
-		-- Trap is valid once Explode is still nil (armed trap)
-		if explode == nil then
-			break
-		end
+		if explode == nil then break end
 
 		RunService.Heartbeat:Wait()
 	end
@@ -264,6 +258,8 @@ task.spawn(function()
 			select(1, createLabel(attachPart, "TRAP", Color3.fromRGB(255, 255, 0)))
 	end
 end)
+
+end -- ✅ CLOSES applyTrapESP
 
 LocalPlayer.Chatted:Connect(function(msg)
 	msg = msg:lower()
