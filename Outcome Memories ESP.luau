@@ -211,12 +211,13 @@ function applyPlayerESP(model)
 end
 
 local function applyTrapESP(instance)
-	if not espEnabled then return end
-	if not instance then return end
+	if not espEnabled or not instance then return end
+
 	removeESP(instance)
 	forceTrapVisible(instance)
 
-	attrConnections[instance] = {}
+	attrConnections[instance] = attrConnections[instance] or {}
+
 	attrConnections[instance].desc =
 		instance.DescendantAdded:Connect(function(d)
 			if d:IsA("BasePart") or d:IsA("UnionOperation") then
@@ -236,9 +237,12 @@ local function applyTrapESP(instance)
 		if not instance or not instance.Parent then return end
 		if instance:GetAttribute("Explode") ~= nil then return end
 		if instance:GetAttribute("Owner") == LocalPlayer.Name then return end
+
 		createHighlight(instance, Color3.fromRGB(255, 255, 0))
+
 		local attachPart = getAttachPart(instance)
 		if not attachPart then return end
+
 		labels[instance] =
 			select(1, createLabel(attachPart, "TRAP", Color3.fromRGB(255, 255, 0)))
 	end)
