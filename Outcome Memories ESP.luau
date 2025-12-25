@@ -243,14 +243,13 @@ local function applyTrapESP(instance)
 
 	attrConnections[instance].attr =
 		instance.AttributeChanged:Connect(function(attr)
-			if attr == "Explode" or attr == "Owner" then
+			if attr == "Owner" then
 				applyTrapESP(instance)
 			end
 		end)
 
 	task.defer(function()
 		if not instance or not instance.Parent then return end
-		if instance:GetAttribute("Explode") ~= nil then return end
 		if instance:GetAttribute("Owner") == LocalPlayer.Name then return end
 
 		createHighlight(instance, Color3.fromRGB(255, 255, 0))
