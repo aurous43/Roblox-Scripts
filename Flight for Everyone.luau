@@ -200,8 +200,8 @@ while RunService.Heartbeat:Wait() do
             isFlying = false -- Explicitly ensure false here for immediate logic
             
         elseif flightStamina > 0 then
-            -- Drain Stamina, comment the line below to have infinite flight
-            flightStamina = flightStamina - (deltaTime * 10)
+            -- Drain Stamina, uncomment the line below to have finite flight
+            -- flightStamina = flightStamina - (deltaTime * 10)
         end
 
         -- Show GUI
